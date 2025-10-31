@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package replicatedcounter;
+
+//  READ, INCREMENT, DECREMENT, ADD, SET, COMPARE_AND_SET.
+
+enum Consistency {
+  CONSISTENCY_UNSPECIFIED = 0;
+  STRONG = 1;
+  EVENTUAL = 2;
+}
+
+
+message ReadRequest {
+  Consistency consistency = 1;
+}
+
+
+message ReadResponse {
+  int64 value = 1;
+
+  uint64 revision = 2;
+
+  string leader_id = 3;
+}
+
+
+message WriteOptions {
+  string client_id = 1;
+
+  uint64 request_id = 2;
+}
+
+
+message WriteResponse {
+  bool success = 1;
+
+  int64 value = 2;
+
+  uint64 revision = 3;
+
+  string leader_id = 4;
+}
+
+
+message IncrementRequest {
+  int64 amount = 1;
+
+  WriteOptions options = 2;
+}
+
+
+message DecrementRequest {
+  int64 amount = 1;
+
+  WriteOptions options = 2;
+}
+
+
+message AddRequest {
+  int64 amount = 1;
+
+  WriteOptions options = 2;
+}
+
+
+message SetRequest {
+  int64 value = 1;
+
+  WriteOptions options = 2;
+}
+
+
+message CompareAndSetRequest {
+  int64 expected = 1;
+
+  int64 new_value = 2;
+
+  WriteOptions options = 3;
+}
+
+
+message CompareAndSetResponse {
+  bool success = 1;
+
+  int64 value = 2;
+
+  uint64 revision = 3;
+
+  string leader_id = 4;
+}
+
+
+service Counter {
+  rpc Read(ReadRequest) returns (ReadResponse);
+
+  rpc Increment(IncrementRequest) returns (WriteResponse);
+
+  rpc Decrement(DecrementRequest) returns (WriteResponse);
+
+  rpc Add(AddRequest) returns (WriteResponse);
+
+  rpc Set(SetRequest) returns (WriteResponse);
+
+  rpc CompareAndSet(CompareAndSetRequest) returns (CompareAndSetResponse);
+}
