@@ -627,6 +627,7 @@ version = "0.1.0"
 dependencies = [
  "prost",
  "protobuf-build",
+ "tokio",
  "tonic",
 ]
 
@@ -1180,6 +1181,7 @@ version = "0.1.0"
 dependencies = [
  "prost",
  "protobuf-build",
+ "tokio",
  "tonic",
 ]
 
