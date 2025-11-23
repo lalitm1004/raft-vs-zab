@@ -1,1 +1,20 @@
 .target
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Ruff
+.ruff_cache
+
+# Env
+.env
+.env.*
+!.env.example
