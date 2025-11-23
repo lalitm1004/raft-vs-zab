@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package counter_service;
+package counter;
 
 service CounterService {
     rpc Get(GetRequest) returns (GetResponse);
