@@ -9,46 +9,42 @@ from google.protobuf import descriptor_pool as _descriptor_pool
 from google.protobuf import runtime_version as _runtime_version
 from google.protobuf import symbol_database as _symbol_database
 from google.protobuf.internal import builder as _builder
+
 _runtime_version.ValidateProtobufRuntimeVersion(
-    _runtime_version.Domain.PUBLIC,
-    6,
-    31,
-    1,
-    '',
-    'counter.proto'
+    _runtime_version.Domain.PUBLIC, 6, 31, 1, "", "counter.proto"
 )
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
 
 
-
-
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rcounter.proto\x12\x07\x63ounter\"\x0c\n\nGetRequest\"W\n\x0bGetResponse\x12\r\n\x05value\x18\x01 \x01(\x03\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12*\n\nnot_leader\x18\x03 \x01(\x0b\x32\x16.counter.NotLeaderInfo\"\"\n\x10IncrementRequest\x12\x0e\n\x06\x61mount\x18\x01 \x01(\x03\"n\n\x11IncrementResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05value\x18\x02 \x01(\x03\x12\r\n\x05\x65rror\x18\x03 \x01(\t\x12*\n\nnot_leader\x18\x04 \x01(\x0b\x32\x16.counter.NotLeaderInfo\"\x1b\n\nSetRequest\x12\r\n\x05value\x18\x01 \x01(\x03\"h\n\x0bSetResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05value\x18\x02 \x01(\x03\x12\r\n\x05\x65rror\x18\x03 \x01(\t\x12*\n\nnot_leader\x18\x04 \x01(\x0b\x32\x16.counter.NotLeaderInfo\"7\n\x14\x43ompareAndSetRequest\x12\x10\n\x08\x65xpected\x18\x01 \x01(\x03\x12\r\n\x05value\x18\x02 \x01(\x03\"r\n\x15\x43ompareAndSetResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05value\x18\x02 \x01(\x03\x12\r\n\x05\x65rror\x18\x03 \x01(\t\x12*\n\nnot_leader\x18\x04 \x01(\x0b\x32\x16.counter.NotLeaderInfo\"$\n\rNotLeaderInfo\x12\x13\n\x0bleader_port\x18\x01 \x01(\r2\x88\x02\n\x0e\x43ounterService\x12\x30\n\x03Get\x12\x13.counter.GetRequest\x1a\x14.counter.GetResponse\x12\x42\n\tIncrement\x12\x19.counter.IncrementRequest\x1a\x1a.counter.IncrementResponse\x12\x30\n\x03Set\x12\x13.counter.SetRequest\x1a\x14.counter.SetResponse\x12N\n\rCompareAndSet\x12\x1d.counter.CompareAndSetRequest\x1a\x1e.counter.CompareAndSetResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
+    b'\n\rcounter.proto\x12\x07\x63ounter"\x0c\n\nGetRequest"W\n\x0bGetResponse\x12\r\n\x05value\x18\x01 \x01(\x03\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x12*\n\nnot_leader\x18\x03 \x01(\x0b\x32\x16.counter.NotLeaderInfo""\n\x10IncrementRequest\x12\x0e\n\x06\x61mount\x18\x01 \x01(\x03"n\n\x11IncrementResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05value\x18\x02 \x01(\x03\x12\r\n\x05\x65rror\x18\x03 \x01(\t\x12*\n\nnot_leader\x18\x04 \x01(\x0b\x32\x16.counter.NotLeaderInfo"\x1b\n\nSetRequest\x12\r\n\x05value\x18\x01 \x01(\x03"h\n\x0bSetResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05value\x18\x02 \x01(\x03\x12\r\n\x05\x65rror\x18\x03 \x01(\t\x12*\n\nnot_leader\x18\x04 \x01(\x0b\x32\x16.counter.NotLeaderInfo"7\n\x14\x43ompareAndSetRequest\x12\x10\n\x08\x65xpected\x18\x01 \x01(\x03\x12\r\n\x05value\x18\x02 \x01(\x03"r\n\x15\x43ompareAndSetResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\r\n\x05value\x18\x02 \x01(\x03\x12\r\n\x05\x65rror\x18\x03 \x01(\t\x12*\n\nnot_leader\x18\x04 \x01(\x0b\x32\x16.counter.NotLeaderInfo"$\n\rNotLeaderInfo\x12\x13\n\x0bleader_port\x18\x01 \x01(\r2\x88\x02\n\x0e\x43ounterService\x12\x30\n\x03Get\x12\x13.counter.GetRequest\x1a\x14.counter.GetResponse\x12\x42\n\tIncrement\x12\x19.counter.IncrementRequest\x1a\x1a.counter.IncrementResponse\x12\x30\n\x03Set\x12\x13.counter.SetRequest\x1a\x14.counter.SetResponse\x12N\n\rCompareAndSet\x12\x1d.counter.CompareAndSetRequest\x1a\x1e.counter.CompareAndSetResponseb\x06proto3'
+)
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
-_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'counter_pb2', _globals)
+_builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, "counter_pb2", _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
-  DESCRIPTOR._loaded_options = None
-  _globals['_GETREQUEST']._serialized_start=26
-  _globals['_GETREQUEST']._serialized_end=38
-  _globals['_GETRESPONSE']._serialized_start=40
-  _globals['_GETRESPONSE']._serialized_end=127
-  _globals['_INCREMENTREQUEST']._serialized_start=129
-  _globals['_INCREMENTREQUEST']._serialized_end=163
-  _globals['_INCREMENTRESPONSE']._serialized_start=165
-  _globals['_INCREMENTRESPONSE']._serialized_end=275
-  _globals['_SETREQUEST']._serialized_start=277
-  _globals['_SETREQUEST']._serialized_end=304
-  _globals['_SETRESPONSE']._serialized_start=306
-  _globals['_SETRESPONSE']._serialized_end=410
-  _globals['_COMPAREANDSETREQUEST']._serialized_start=412
-  _globals['_COMPAREANDSETREQUEST']._serialized_end=467
-  _globals['_COMPAREANDSETRESPONSE']._serialized_start=469
-  _globals['_COMPAREANDSETRESPONSE']._serialized_end=583
-  _globals['_NOTLEADERINFO']._serialized_start=585
-  _globals['_NOTLEADERINFO']._serialized_end=621
-  _globals['_COUNTERSERVICE']._serialized_start=624
-  _globals['_COUNTERSERVICE']._serialized_end=888
+    DESCRIPTOR._loaded_options = None
+    _globals["_GETREQUEST"]._serialized_start = 26
+    _globals["_GETREQUEST"]._serialized_end = 38
+    _globals["_GETRESPONSE"]._serialized_start = 40
+    _globals["_GETRESPONSE"]._serialized_end = 127
+    _globals["_INCREMENTREQUEST"]._serialized_start = 129
+    _globals["_INCREMENTREQUEST"]._serialized_end = 163
+    _globals["_INCREMENTRESPONSE"]._serialized_start = 165
+    _globals["_INCREMENTRESPONSE"]._serialized_end = 275
+    _globals["_SETREQUEST"]._serialized_start = 277
+    _globals["_SETREQUEST"]._serialized_end = 304
+    _globals["_SETRESPONSE"]._serialized_start = 306
+    _globals["_SETRESPONSE"]._serialized_end = 410
+    _globals["_COMPAREANDSETREQUEST"]._serialized_start = 412
+    _globals["_COMPAREANDSETREQUEST"]._serialized_end = 467
+    _globals["_COMPAREANDSETRESPONSE"]._serialized_start = 469
+    _globals["_COMPAREANDSETRESPONSE"]._serialized_end = 583
+    _globals["_NOTLEADERINFO"]._serialized_start = 585
+    _globals["_NOTLEADERINFO"]._serialized_end = 621
+    _globals["_COUNTERSERVICE"]._serialized_start = 624
+    _globals["_COUNTERSERVICE"]._serialized_end = 888
 # @@protoc_insertion_point(module_scope)

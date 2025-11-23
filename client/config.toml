@@ -1,0 +1,15 @@
+N = 3
+START_PORT = 8000
+IMAGE = "debian:bookworm-slim"
+BINARY_PATH = "../bin/add"
+
+REQUEST_INTERVAL_TIME = 2
+WRITE_PROBABILITY = 0.4
+N_REQUESTS = 20
+
+[server]
+election_timeout_min_ms = 150
+election_timeout_max_ms = 300
+heartbeat_interval_ms = 75
+ip = "127.0.0.1"
+log_dir = "./data/raft"

@@ -5,23 +5,26 @@ import warnings
 
 import counter_pb2 as counter__pb2
 
-GRPC_GENERATED_VERSION = '1.76.0'
+GRPC_GENERATED_VERSION = "1.76.0"
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
 try:
     from grpc._utilities import first_version_is_lower
-    _version_not_supported = first_version_is_lower(GRPC_VERSION, GRPC_GENERATED_VERSION)
+
+    _version_not_supported = first_version_is_lower(
+        GRPC_VERSION, GRPC_GENERATED_VERSION
+    )
 except ImportError:
     _version_not_supported = True
 
 if _version_not_supported:
     raise RuntimeError(
-        f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in counter_pb2_grpc.py depends on'
-        + f' grpcio>={GRPC_GENERATED_VERSION}.'
-        + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
-        + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
+        f"The grpc package installed is at version {GRPC_VERSION},"
+        + " but the generated code in counter_pb2_grpc.py depends on"
+        + f" grpcio>={GRPC_GENERATED_VERSION}."
+        + f" Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}"
+        + f" or downgrade your generated code using grpcio-tools<={GRPC_VERSION}."
     )
 
 
@@ -35,25 +38,29 @@ class CounterServiceStub(object):
             channel: A grpc.Channel.
         """
         self.Get = channel.unary_unary(
-                '/counter.CounterService/Get',
-                request_serializer=counter__pb2.GetRequest.SerializeToString,
-                response_deserializer=counter__pb2.GetResponse.FromString,
-                _registered_method=True)
+            "/counter.CounterService/Get",
+            request_serializer=counter__pb2.GetRequest.SerializeToString,
+            response_deserializer=counter__pb2.GetResponse.FromString,
+            _registered_method=True,
+        )
         self.Increment = channel.unary_unary(
-                '/counter.CounterService/Increment',
-                request_serializer=counter__pb2.IncrementRequest.SerializeToString,
-                response_deserializer=counter__pb2.IncrementResponse.FromString,
-                _registered_method=True)
+            "/counter.CounterService/Increment",
+            request_serializer=counter__pb2.IncrementRequest.SerializeToString,
+            response_deserializer=counter__pb2.IncrementResponse.FromString,
+            _registered_method=True,
+        )
         self.Set = channel.unary_unary(
-                '/counter.CounterService/Set',
-                request_serializer=counter__pb2.SetRequest.SerializeToString,
-                response_deserializer=counter__pb2.SetResponse.FromString,
-                _registered_method=True)
+            "/counter.CounterService/Set",
+            request_serializer=counter__pb2.SetRequest.SerializeToString,
+            response_deserializer=counter__pb2.SetResponse.FromString,
+            _registered_method=True,
+        )
         self.CompareAndSet = channel.unary_unary(
-                '/counter.CounterService/CompareAndSet',
-                request_serializer=counter__pb2.CompareAndSetRequest.SerializeToString,
-                response_deserializer=counter__pb2.CompareAndSetResponse.FromString,
-                _registered_method=True)
+            "/counter.CounterService/CompareAndSet",
+            request_serializer=counter__pb2.CompareAndSetRequest.SerializeToString,
+            response_deserializer=counter__pb2.CompareAndSetResponse.FromString,
+            _registered_method=True,
+        )
 
 
 class CounterServiceServicer(object):
@@ -62,76 +69,79 @@ class CounterServiceServicer(object):
     def Get(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def Increment(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def Set(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
     def CompareAndSet(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
 
 
 def add_CounterServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
-            'Get': grpc.unary_unary_rpc_method_handler(
-                    servicer.Get,
-                    request_deserializer=counter__pb2.GetRequest.FromString,
-                    response_serializer=counter__pb2.GetResponse.SerializeToString,
-            ),
-            'Increment': grpc.unary_unary_rpc_method_handler(
-                    servicer.Increment,
-                    request_deserializer=counter__pb2.IncrementRequest.FromString,
-                    response_serializer=counter__pb2.IncrementResponse.SerializeToString,
-            ),
-            'Set': grpc.unary_unary_rpc_method_handler(
-                    servicer.Set,
-                    request_deserializer=counter__pb2.SetRequest.FromString,
-                    response_serializer=counter__pb2.SetResponse.SerializeToString,
-            ),
-            'CompareAndSet': grpc.unary_unary_rpc_method_handler(
-                    servicer.CompareAndSet,
-                    request_deserializer=counter__pb2.CompareAndSetRequest.FromString,
-                    response_serializer=counter__pb2.CompareAndSetResponse.SerializeToString,
-            ),
+        "Get": grpc.unary_unary_rpc_method_handler(
+            servicer.Get,
+            request_deserializer=counter__pb2.GetRequest.FromString,
+            response_serializer=counter__pb2.GetResponse.SerializeToString,
+        ),
+        "Increment": grpc.unary_unary_rpc_method_handler(
+            servicer.Increment,
+            request_deserializer=counter__pb2.IncrementRequest.FromString,
+            response_serializer=counter__pb2.IncrementResponse.SerializeToString,
+        ),
+        "Set": grpc.unary_unary_rpc_method_handler(
+            servicer.Set,
+            request_deserializer=counter__pb2.SetRequest.FromString,
+            response_serializer=counter__pb2.SetResponse.SerializeToString,
+        ),
+        "CompareAndSet": grpc.unary_unary_rpc_method_handler(
+            servicer.CompareAndSet,
+            request_deserializer=counter__pb2.CompareAndSetRequest.FromString,
+            response_serializer=counter__pb2.CompareAndSetResponse.SerializeToString,
+        ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
-            'counter.CounterService', rpc_method_handlers)
+        "counter.CounterService", rpc_method_handlers
+    )
     server.add_generic_rpc_handlers((generic_handler,))
-    server.add_registered_method_handlers('counter.CounterService', rpc_method_handlers)
+    server.add_registered_method_handlers("counter.CounterService", rpc_method_handlers)
 
 
- # This class is part of an EXPERIMENTAL API.
+# This class is part of an EXPERIMENTAL API.
 class CounterService(object):
     """Missing associated documentation comment in .proto file."""
 
     @staticmethod
-    def Get(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
+    def Get(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/counter.CounterService/Get',
+            "/counter.CounterService/Get",
             counter__pb2.GetRequest.SerializeToString,
             counter__pb2.GetResponse.FromString,
             options,
@@ -142,23 +152,26 @@ class CounterService(object):
             wait_for_ready,
             timeout,
             metadata,
-            _registered_method=True)
+            _registered_method=True,
+        )
 
     @staticmethod
-    def Increment(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
+    def Increment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/counter.CounterService/Increment',
+            "/counter.CounterService/Increment",
             counter__pb2.IncrementRequest.SerializeToString,
             counter__pb2.IncrementResponse.FromString,
             options,
@@ -169,23 +182,26 @@ class CounterService(object):
             wait_for_ready,
             timeout,
             metadata,
-            _registered_method=True)
+            _registered_method=True,
+        )
 
     @staticmethod
-    def Set(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
+    def Set(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/counter.CounterService/Set',
+            "/counter.CounterService/Set",
             counter__pb2.SetRequest.SerializeToString,
             counter__pb2.SetResponse.FromString,
             options,
@@ -196,23 +212,26 @@ class CounterService(object):
             wait_for_ready,
             timeout,
             metadata,
-            _registered_method=True)
+            _registered_method=True,
+        )
 
     @staticmethod
-    def CompareAndSet(request,
-            target,
-            options=(),
-            channel_credentials=None,
-            call_credentials=None,
-            insecure=False,
-            compression=None,
-            wait_for_ready=None,
-            timeout=None,
-            metadata=None):
+    def CompareAndSet(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
         return grpc.experimental.unary_unary(
             request,
             target,
-            '/counter.CounterService/CompareAndSet',
+            "/counter.CounterService/CompareAndSet",
             counter__pb2.CompareAndSetRequest.SerializeToString,
             counter__pb2.CompareAndSetResponse.FromString,
             options,
@@ -223,4 +242,5 @@ class CounterService(object):
             wait_for_ready,
             timeout,
             metadata,
-            _registered_method=True)
+            _registered_method=True,
+        )
