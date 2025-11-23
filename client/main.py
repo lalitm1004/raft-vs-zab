@@ -38,7 +38,7 @@ class Environment:
     def start(self):
         for id in range(self.n_containers):
             os.makedirs(f"./logs{id}", exist_ok=True)
-            
+
             external_port = self.start_port + id
             container = Container(
                 image=self.image,
@@ -83,7 +83,9 @@ class Container:
             command="sleep infinity",
             name=self.name,
             network="host",
-            volumes={os.path.abspath(f"./logs{self.id}"): {"bind": "/data", "mode": "rw"}}
+            volumes={
+                os.path.abspath(f"./logs{self.id}"): {"bind": "/data", "mode": "rw"}
+            },
         )
         print(f"STARTED {self.name} ON HOST PORT {external_port}")
 
@@ -92,6 +94,13 @@ class Container:
         self.run_server()
 
     def takedown(self, remove=False):
+        try:
+            print(f"--- LOGS FOR {self.name} ---")
+            print(self.container.logs().decode("utf-8"))
+            print(f"--- END LOGS FOR {self.name} ---")
+        except Exception as e:
+            print(f"Failed to get logs for {self.name}: {e}")
+
         self.container.kill()
         print(f"CONTAINER {self.name} KILLED")
         if remove:
@@ -121,17 +130,33 @@ class Container:
         print("COPIED BIN FILE")
 
     def run_server(self):
-        args = [
-            self.container_binary_path,
-            f"--id={self.id}",
-            f"--cluster_size={self.cluster_size}",
-            f"--ip={self.cli_config.get('ip', '127.0.0.1')}",
-            f"--base_port={self.address.split(':')[1]}",
-            f"--election_timeout_min_ms={self.cli_config.get('election_timeout_min_ms', 150)}",
-            f"--election_timeout_max_ms={self.cli_config.get('election_timeout_max_ms', 300)}",
-            f"--heartbeat_interval_ms={self.cli_config.get('heartbeat_interval_ms', 75)}",
-            f"--log_dir={self.cli_config.get('log_dir', './data/raft')}",
-        ]
+        args = []
+
+        args.append(self.container_binary_path)
+
+        args.append("--id")
+        args.append(str(self.id))
+
+        args.append("--cluster-size")
+        args.append(str(self.cluster_size))
+
+        args.append("--ip")
+        args.append(self.cli_config.get("ip", "127.0.0.1"))
+
+        args.append("--base-port")
+        args.append(self.address.split(":")[1])
+
+        args.append("--election-timeout-min-ms")
+        args.append(str(self.cli_config.get("election_timeout_min_ms", 150)))
+
+        args.append("--election-timeout-max-ms")
+        args.append(str(self.cli_config.get("election_timeout_max_ms", 300)))
+
+        args.append("--heartbeat-interval-ms")
+        args.append(str(self.cli_config.get("heartbeat_interval_ms", 75)))
+
+        args.append("--log-dir")
+        args.append(self.cli_config.get("log_dir", "./data/raft"))
 
         subprocess.run(["docker", "exec", "-d", self.name] + args, check=True)
 
@@ -148,58 +173,60 @@ class ClientActions:
         print("CLIENT INITIALIZED")
 
     def get(self):
-        try:
-            request = counter_pb2.GetRequest()
-            response = self.stub.Get(request, timeout=self.rpc_timeout)
+        # try:
+        request = counter_pb2.GetRequest()
+        response = self.stub.Get(request, timeout=self.rpc_timeout)
 
-            if response.error:
-                print(f"ERROR FROM {self.address}: {response.error}")
-            elif response.not_leader.leader_port:
-                self.set_leader_addr(response.not_leader.leader_port)
-                self.get()
-            else:
-                print(f"FROM REQUEST [GET]: VALUE = {response.value}")
-
-        except grpc.RpcError as e:
-            print(f"RPC ERROR ON {self.address}: {e}")
-            self.set_leader_addr()
+        if response.error:
+            print(f"ERROR FROM {self.address}: {response.error}")
+        if response.not_leader.leader_port:
+            self.set_leader_addr(response.not_leader.leader_port)
             self.get()
+        else:
+            print(f"FROM REQUEST [GET]: VALUE = {response.value}")
+
+        # except grpc.RpcError as e:
+        # print(f"RPC ERROR ON {self.address}: {e}")
+        # self.set_leader_addr()
+        # self.get()
 
     def increment(self, amount):
-        try:
-            request = counter_pb2.IncrementRequest(amount=amount)
-            response = self.stub.Increment(request, timeout=self.rpc_timeout)
+        # try:
+        request = counter_pb2.IncrementRequest(amount=amount)
+        response = self.stub.Increment(request, timeout=self.rpc_timeout)
 
-            if response.error:
-                print(f"ERROR FROM {self.address}: {response.error}")
-            elif response.not_leader.leader_port:
-                self.set_leader_addr(response.not_leader.leader_port)
-                self.increment(amount)
-            else:
-                print(f"FROM REQUEST [INCREMENT]: VALUE = {response.value}")
-
-        except grpc.RpcError as e:
-            print(f"RPC ERROR ON {self.address}: {e}")
-            self.set_leader_addr()
+        if response.error:
+            print(f"ERROR FROM {self.address}: {response.error}")
+        if response.not_leader.leader_port:
+            self.set_leader_addr(response.not_leader.leader_port)
             self.increment(amount)
+        else:
+            print(f"FROM REQUEST [INCREMENT]: VALUE = {response.value}")
+
+        # except grpc.RpcError as e:
+
+        # print(f"RPC ERROR ON {self.address}: {e}")
+        # self.set_leader_addr()
+        # self.increment(amount)
 
     def set(self, value):
-        try:
-            request = counter_pb2.SetRequest(value=value)
-            response = self.stub.Set(request, timeout=self.rpc_timeout)
+        # try:
+        request = counter_pb2.SetRequest(value=value)
+        response = self.stub.Set(request, timeout=self.rpc_timeout)
 
-            if response.error:
-                print(f"ERROR FROM {self.address}: {response.error}")
-            elif response.not_leader.leader_port:
-                self.set_leader_addr(response.not_leader.leader_port)
-                self.set(value)
-            else:
-                print(f"FROM REQUEST [SET]: VALUE = {response.value}")
-
-        except grpc.RpcError as e:
-            print(f"RPC ERROR ON {self.address}: {e}")
-            self.set_leader_addr()
+        if response.error:
+            print(f"ERROR FROM {self.address}: {response.error}")
+        if response.not_leader.leader_port:
+            self.set_leader_addr(response.not_leader.leader_port)
             self.set(value)
+        else:
+            print(f"FROM REQUEST [SET]: VALUE = {response.value}")
+
+        # except grpc.RpcError as e:
+
+        # print(f"RPC ERROR ON {self.address}: {e}")
+        # self.set_leader_addr()
+        # self.set(value)
 
     def set_leader_addr(self, port=None):
         if port is None or port not in self.environment.containers:
@@ -220,7 +247,9 @@ def main():
     )
 
     try:
+        print("1")
         env.start()
+        print("2")
         client_actions = ClientActions(env)
 
         # -------- Request Loop -------- #
@@ -230,22 +259,26 @@ def main():
             if is_write:
                 if random.random() < 0.5:
                     value = random.randint(1, 100)
-                    print(f"\nREQUEST {i+1}: SET {value}")
+                    print(f"\nREQUEST {i + 1}: SET {value}")
                     client_actions.set(value)
                 else:
                     amount = random.randint(1, 10)
-                    print(f"\nREQUEST {i+1}: INCREMENT {amount}")
+                    print(f"\nREQUEST {i + 1}: INCREMENT {amount}")
                     client_actions.increment(amount)
             else:
-                print(f"\nREQUEST {i+1}: GET")
+                print(f"\nREQUEST {i + 1}: GET")
                 client_actions.get()
 
             time.sleep(REQUEST_INTERVAL_TIME)
 
     except Exception as e:
-        env.force_takedown()
+        print(f"EXCEPTION: {e}")
+        traceback.print_exc()
     finally:
-        env.force_takedown()
+        pass
+        # env.force_takedown()
+
+    print("bye")
 
 
 if __name__ == "__main__":

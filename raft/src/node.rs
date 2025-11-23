@@ -1,5 +1,5 @@
 use crate::{
-    config::{Config, Peer},
+    config::Config,
     state::{LogEntry, RaftState, Role},
     storage::Storage,
 };
@@ -54,9 +54,9 @@ impl RaftNode {
     /// Append a log entry (called by counter service)
     /// Returns the index of the committed entry
     pub async fn append_log_entry(
-        &self,
+        self: &Arc<Self>,
         command: Vec<u8>,
-    ) -> Result<i64, Box<dyn std::error::Error>> {
+    ) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
         let mut state = self.state.lock().await;
 
         // Only leaders can accept client requests
@@ -75,7 +75,9 @@ impl RaftNode {
         let log_index = state.last_log_index();
 
         // Persist immediately
-        self.storage.save_state(&state.persistent)?;
+        if let Err(e) = self.storage.save_state(&state.persistent) {
+             return Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, e.to_string())));
+        }
 
         tracing::debug!(
             node = state.id,
@@ -87,7 +89,7 @@ impl RaftNode {
         drop(state);
 
         // Trigger immediate replication (instead of waiting for heartbeat)
-        Arc::clone(&self).send_heartbeats().await;
+        self.send_heartbeats().await;
 
         Ok(log_index)
     }
@@ -111,10 +113,10 @@ impl RaftNode {
     pub async fn apply_committed_entries<F, Fut>(
         &self,
         apply_fn: F,
-    ) -> Result<(), Box<dyn std::error::Error>>
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>>
     where
         F: Fn(Vec<u8>) -> Fut,
-        Fut: std::future::Future<Output = Result<(), Box<dyn std::error::Error>>>,
+        Fut: std::future::Future<Output = Result<(), Box<dyn std::error::Error + Send + Sync>>>,
     {
         let mut state = self.state.lock().await;
 
@@ -321,7 +323,7 @@ impl RaftNode {
         }
     }
 
-    /// Send heartbeats (empty AppendEntries) to all peers
+    /// Send heartbeats/log entries to all peers
     async fn send_heartbeats(self: &Arc<Self>) {
         let state = self.state.lock().await;
 
@@ -333,9 +335,12 @@ impl RaftNode {
         let leader_id = state.id;
         let commit_index = state.volatile.commit_index;
 
-        tracing::debug!(node = leader_id, term, "Sending heartbeats");
+        tracing::debug!(node = leader_id, term, "Sending heartbeats/log entries");
+
+        let mut handles = vec![];
 
         for peer in &self.config.peers {
+            let peer_id = peer.id;
             let peer_addr = peer.addr;
 
             // Get the appropriate prev_log info for this peer
@@ -358,23 +363,146 @@ impl RaftNode {
                 0
             };
 
+            // Get entries to send (from next_idx to end of log)
+            let entries: Vec<_> = state
+                .persistent
+                .log
+                .iter()
+                .skip((next_idx - 1).max(0) as usize)
+                .map(|e| protobuf_build::raft::LogEntry {
+                    term: e.term,
+                    command: e.command.clone(),
+                })
+                .collect();
+
             let request = AppendEntriesRequest {
                 term,
                 leader_id: leader_id as u32,
                 prev_log_index,
                 prev_log_term,
-                entries: vec![], // Empty for heartbeat
+                entries: entries.clone(),
                 leader_commit: commit_index,
             };
 
-            tokio::spawn(async move {
+            // Capture next_idx for response processing
+            let captured_next_idx = next_idx;
+
+            let handle = tokio::spawn(async move {
                 let uri = format!("http://{}", peer_addr);
                 if let Ok(mut client) =
                     protobuf_build::raft::raft_client::RaftClient::connect(uri).await
                 {
-                    let _ = client.append_entries(request).await;
+                    if let Ok(response) = client.append_entries(request).await {
+                        let resp = response.into_inner();
+                        return Some((peer_id, resp, entries.len(), captured_next_idx));
+                    }
                 }
+                None
             });
+
+            handles.push(handle);
+        }
+
+        drop(state);
+
+        // Collect responses and update match_index/next_index
+        for handle in handles {
+            if let Ok(Some((peer_id, response, entries_sent, captured_next_idx))) = handle.await {
+                let mut state = self.state.lock().await;
+
+                // Check if we're still leader in the same term
+                if state.role != Role::Leader || state.persistent.current_term != term {
+                    return;
+                }
+
+                // If response term is higher, step down
+                if response.term > state.persistent.current_term {
+                    state.become_follower(response.term);
+                    if let Err(e) = self.storage.save_state(&state.persistent) {
+                        tracing::error!(error = ?e, "Failed to save state");
+                    }
+                    return;
+                }
+
+                if let Some(leader_state) = &mut state.leader_state {
+                    if response.success {
+                        // Update next_index and match_index for this peer
+                        // Use the captured next_idx from when we sent the request
+                        let new_match = captured_next_idx + entries_sent as i64 - 1;
+                        
+                        leader_state.next_index.insert(peer_id, new_match + 1);
+                        leader_state.match_index.insert(peer_id, new_match);
+
+                        tracing::debug!(
+                            node = state.id,
+                            peer = peer_id,
+                            match_index = new_match,
+                            next_index = new_match + 1,
+                            "Updated peer indices after successful replication"
+                        );
+                    } else {
+                        // Decrement next_index and retry
+                        let next_idx = leader_state.next_index.get(&peer_id).copied().unwrap_or(1);
+                        let new_next = (next_idx - 1).max(1);
+                        leader_state.next_index.insert(peer_id, new_next);
+
+                        tracing::debug!(
+                            node = state.id,
+                            peer = peer_id,
+                            new_next_index = new_next,
+                            "Decremented next_index after failed replication"
+                        );
+                    }
+                }
+            }
+        }
+
+        // Update commit index
+        self.update_commit_index().await;
+    }
+
+    /// Update commit index based on majority replication
+    async fn update_commit_index(self: &Arc<Self>) {
+        let mut state = self.state.lock().await;
+
+        if state.role != Role::Leader {
+            return;
+        }
+
+        let leader_state = match &state.leader_state {
+            Some(ls) => ls,
+            None => return,
+        };
+
+        // Find the highest index replicated on a majority of servers
+        let mut match_indices: Vec<i64> = leader_state
+            .match_index
+            .values()
+            .copied()
+            .collect();
+        
+        // Add our own log index (we always have our own entries)
+        match_indices.push(state.last_log_index());
+        
+        // Sort in descending order
+        match_indices.sort_by(|a, b| b.cmp(a));
+
+        // Find the median (majority threshold)
+        let majority_index = match_indices.len() / 2;
+        let n = match_indices[majority_index];
+
+        // Only commit entries from current term
+        if n > state.volatile.commit_index {
+            if let Some(entry) = state.persistent.log.get((n - 1) as usize) {
+                if entry.term == state.persistent.current_term {
+                    state.volatile.commit_index = n;
+                    tracing::info!(
+                        node = state.id,
+                        new_commit_index = n,
+                        "Leader updated commit index"
+                    );
+                }
+            }
         }
     }
 }
@@ -447,6 +575,9 @@ impl Raft for RaftNode {
             leader = req.leader_id,
             term = req.term,
             entries = req.entries.len(),
+            prev_log_index = req.prev_log_index,
+            prev_log_term = req.prev_log_term,
+            leader_commit = req.leader_commit,
             "Received AppendEntries"
         );
 
@@ -470,8 +601,74 @@ impl Raft for RaftNode {
         state.current_leader = Some(req.leader_id as u16);
         state.reset_election_timer();
 
-        // For now, just accept heartbeats
-        // TODO: Implement log replication logic
+        // Check log consistency
+        // If prev_log_index is 0, we're at the start of the log (always consistent)
+        if req.prev_log_index > 0 {
+            let prev_entry = state.persistent.log.get((req.prev_log_index - 1) as usize);
+            
+            // Reply false if log doesn't contain an entry at prev_log_index
+            // whose term matches prev_log_term
+            if prev_entry.is_none() || prev_entry.unwrap().term != req.prev_log_term {
+                tracing::debug!(
+                    node = state.id,
+                    prev_log_index = req.prev_log_index,
+                    prev_log_term = req.prev_log_term,
+                    our_entry = ?prev_entry,
+                    "Log consistency check failed"
+                );
+                return Ok(Response::new(AppendEntriesResponse {
+                    term: state.persistent.current_term,
+                    success: false,
+                }));
+            }
+        }
+
+        // If we have entries to append
+        if !req.entries.is_empty() {
+            // Delete conflicting entries and append new ones
+            let start_index = req.prev_log_index as usize;
+            
+            // Truncate log to prev_log_index
+            state.persistent.log.truncate(start_index);
+            
+            // Append new entries
+            for proto_entry in &req.entries {
+                let entry = LogEntry {
+                    term: proto_entry.term,
+                    command: proto_entry.command.clone(),
+                };
+                state.persistent.log.push(entry);
+            }
+            
+            // Persist the updated log
+            if let Err(e) = self.storage.save_state(&state.persistent) {
+                tracing::error!(error = ?e, "Failed to save state after appending entries");
+                return Ok(Response::new(AppendEntriesResponse {
+                    term: state.persistent.current_term,
+                    success: false,
+                }));
+            }
+            
+            tracing::info!(
+                node = state.id,
+                entries_appended = req.entries.len(),
+                new_log_length = state.persistent.log.len(),
+                "Appended entries to log"
+            );
+        }
+
+        // Update commit index
+        if req.leader_commit > state.volatile.commit_index {
+            let new_commit = std::cmp::min(req.leader_commit, state.last_log_index());
+            state.volatile.commit_index = new_commit;
+            
+            tracing::info!(
+                node = state.id,
+                old_commit = state.volatile.commit_index,
+                new_commit,
+                "Updated commit index"
+            );
+        }
 
         Ok(Response::new(AppendEntriesResponse {
             term: state.persistent.current_term,
