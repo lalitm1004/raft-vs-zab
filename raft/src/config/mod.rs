@@ -50,8 +50,6 @@ impl From<Cli> for Config {
         let election_timeout_ms =
             rng.random_range(cli.election_timeout_min_ms..=cli.election_timeout_max_ms);
 
-        let log_dir = cli.log_dir.join(format!("node{}", cli.id));
-
         Config {
             id: cli.id,
             cluster_size: cli.cluster_size,
@@ -60,7 +58,7 @@ impl From<Cli> for Config {
             peers,
             election_timeout_ms,
             heartbeat_interval_ms: cli.heartbeat_interval_ms,
-            log_dir,
+            log_dir: cli.log_dir,
         }
     }
 }

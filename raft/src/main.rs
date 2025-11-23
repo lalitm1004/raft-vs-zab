@@ -5,7 +5,10 @@ use raft::{Cli, Config};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::from(Cli::parse());
 
-    println!("{:?}", config);
+    raft::init_logging(&config.log_dir, config.id)?;
+
+    // tracing::info!("Starting raft node");
+    tracing::info!(target: "raft", "hello");
 
     Ok(())
 }
