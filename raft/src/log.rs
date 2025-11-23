@@ -1,5 +1,5 @@
 use std::{
-    fs::File,
+    fs::OpenOptions,
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -11,11 +11,18 @@ use tracing_subscriber::{
     util::SubscriberInitExt,
 };
 
-pub fn init_logging(log_dir: &Path, node_id: u16) -> Result<(), Box<dyn std::error::Error>> {
+pub fn init_logging(log_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(log_dir)?;
 
-    let raft_file = File::create(log_dir.join(format!("node{}_raft.log", node_id)))?;
-    let counter_file = File::create(log_dir.join(format!("node{}_counter.log", node_id)))?;
+    let raft_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_dir.join("raft.log"))?;
+
+    let counter_file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_dir.join("counter.log"))?;
 
     let raft_layer = fmt::layer()
         .with_writer(raft_file)
@@ -33,7 +40,7 @@ pub fn init_logging(log_dir: &Path, node_id: u16) -> Result<(), Box<dyn std::err
 
     let stdout_layer = fmt::layer()
         .with_writer(std::io::stdout)
-        .with_target(true)
+        .with_target(false)
         .with_thread_ids(true)
         .with_line_number(true)
         .with_timer(NanoTime)
@@ -54,6 +61,6 @@ impl FormatTime for NanoTime {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("Time went backwards");
-        write!(w, "{}.{}", now.as_secs(), now.subsec_nanos())
+        write!(w, "{}.{:9}", now.as_secs(), now.subsec_nanos())
     }
 }
