@@ -37,6 +37,8 @@ class Environment:
 
     def start(self):
         for id in range(self.n_containers):
+            os.makedirs(f"./logs{id}", exist_ok=True)
+            
             external_port = self.start_port + id
             container = Container(
                 image=self.image,
@@ -81,6 +83,7 @@ class Container:
             command="sleep infinity",
             name=self.name,
             network="host",
+            volumes={os.path.abspath(f"./logs{self.id}"): {"bind": "/data", "mode": "rw"}}
         )
         print(f"STARTED {self.name} ON HOST PORT {external_port}")
 
@@ -241,7 +244,6 @@ def main():
 
     except Exception as e:
         env.force_takedown()
-        traceback.print_exc()
     finally:
         env.force_takedown()
 
