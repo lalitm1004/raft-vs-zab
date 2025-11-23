@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
+use bincode::{Decode, Encode};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Role {
     Follower,
     Candidate,
@@ -9,7 +9,7 @@ pub enum Role {
 }
 
 // must survive crashes
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Decode, Encode)]
 pub struct PersistentState {
     pub current_term: i64,
     pub voted_for: Option<u16>,
@@ -27,7 +27,7 @@ impl Default for PersistentState {
 }
 
 // entry stored in persistent log
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Decode, Encode)]
 pub struct LogEntry {
     pub term: i64,
     pub command: Vec<u8>,
