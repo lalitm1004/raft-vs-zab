@@ -8,6 +8,7 @@ pub enum Role {
     Leader,
 }
 
+// must survive crashes
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistentState {
     pub current_term: i64,
@@ -25,18 +26,21 @@ impl Default for PersistentState {
     }
 }
 
+// entry stored in persistent log
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogEntry {
     pub term: i64,
     pub command: Vec<u8>,
 }
 
+// in memory state
 #[derive(Debug, Default)]
 pub struct VolatileState {
     pub commit_index: i64,
     pub last_applied: i64,
 }
 
+// leader specific state
 #[derive(Debug)]
 pub struct LeaderState {
     pub next_index: HashMap<u16, i64>,
@@ -59,6 +63,7 @@ impl LeaderState {
     }
 }
 
+// main raft node state
 pub struct RaftState {
     pub id: u16,
     pub role: Role,
@@ -82,10 +87,14 @@ impl RaftState {
         }
     }
 
+    // idx of last log entry
+    #[inline]
     pub fn last_log_index(&self) -> i64 {
         self.persistent.log.len() as i64
     }
 
+    // term of last log entry
+    #[inline]
     pub fn last_log_term(&self) -> i64 {
         self.persistent
             .log
@@ -111,11 +120,14 @@ impl RaftState {
     }
 
     pub fn become_follower(&mut self, term: i64) {
+        let old_role = self.role;
         tracing::info!(
+            target: "raft",
             node = self.id,
-            old_role = ?self.role,
+            old_role = ?old_role,
+            new_role = "follower",
             new_term = term,
-            "Becoming follower"
+            "transitioning to follower"
         );
 
         self.role = Role::Follower;
@@ -125,8 +137,9 @@ impl RaftState {
         self.last_heartbeat = std::time::Instant::now();
     }
 
-    /// Transition to candidate state (start election)
     pub fn become_candidate(&mut self) {
+        let old_role = self.role;
+        let old_term = self.persistent.current_term;
         self.persistent.current_term += 1;
         self.role = Role::Candidate;
         self.persistent.voted_for = Some(self.id);
@@ -134,30 +147,42 @@ impl RaftState {
         self.last_heartbeat = std::time::Instant::now();
 
         tracing::info!(
+            target: "raft",
             node = self.id,
-            term = self.persistent.current_term,
-            "Starting election as candidate"
+            old_role = ?old_role,
+            new_role = "candidate",
+            old_term,
+            new_term = self.persistent.current_term,
+            "starting election as candidate"
         );
     }
 
-    /// Transition to leader state
     pub fn become_leader(&mut self, peer_ids: &[u16]) {
-        tracing::info!(
-            node = self.id,
-            term = self.persistent.current_term,
-            "Became leader"
-        );
-
+        let old_role = self.role;
+        let last_index = self.last_log_index();
         self.role = Role::Leader;
         self.current_leader = Some(self.id);
+        self.leader_state = Some(LeaderState::new(peer_ids, last_index));
 
-        // Initialize leader state
-        let last_log_index = self.last_log_index();
-        self.leader_state = Some(LeaderState::new(peer_ids, last_log_index));
+        tracing::info!(
+            target: "raft",
+            node = self.id,
+            old_role = ?old_role,
+            new_role = "leader",
+            term = self.persistent.current_term,
+            last_log_index = last_index,
+            peer_count = peer_ids.len(),
+            "node became leader"
+        );
     }
 
-    /// Reset election timer
     pub fn reset_election_timer(&mut self) {
         self.last_heartbeat = std::time::Instant::now();
+        tracing::debug!(
+            target = "raft",
+            node = self.id,
+            last_heartbeat = ?self.last_heartbeat,
+            "election timer reset"
+        );
     }
 }
