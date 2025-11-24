@@ -1,0 +1,92 @@
+// ZAB (Zookeeper Atomic Broadcast) Protocol Definitions
+// Generate with: python3 -m grpc_tools.protoc zab.proto --proto_path=. --python_out=. --grpc_python_out=.
+syntax = "proto3";
+package zab;
+
+service ZabNode {
+        // Fast Leader Election
+        rpc FastLeaderElection(FLEMessage) returns (FLEMessage) {}
+        
+        // Transaction Processing
+        rpc ProposeTransaction(ProposeRequest) returns (AckMessage) {}
+        rpc CommitTransaction(CommitRequest) returns (EmptyMessage) {}
+        
+        // Client Operations
+        rpc GetLeader(EmptyMessage) returns (GetLeaderReply) {}
+        rpc Suspend(SuspendRequest) returns (EmptyMessage) {}
+        rpc SetVal(SetRequest) returns (SetReply) {}
+        rpc GetVal(GetRequest) returns (GetReply) {}
+}
+
+// Fast Leader Election (FLE) Message
+
+message FLEMessage {
+        int64 node_id = 1;          // ID of the node sending this message
+        int64 epoch = 2;            // Proposed epoch
+        int64 zxid = 3;             // Highest ZXID seen by this node
+        string state = 4;           // Current state: LOOKING, FOLLOWING, LEADING
+        int64 leader_id = 5;        // Proposed leader ID
+}
+
+// Transaction Proposal
+
+message ProposeRequest {
+        int64 epoch = 1;            // Current epoch
+        int64 zxid = 2;             // Transaction ID (epoch << 32 | counter)
+        int64 leader_id = 3;        // Leader's ID
+        Transaction transaction = 4; // The transaction to propose
+}
+
+message Transaction {
+        int64 zxid = 1;             // Transaction ID
+        string key = 2;             // Key for key-value store
+        string value = 3;           // Value for key-value store
+}
+
+message AckMessage {
+        int64 epoch = 1;            // Current epoch
+        int64 zxid = 2;             // ZXID being acknowledged
+        bool success = 3;           // Whether the proposal was accepted
+}
+
+// Commit Phase
+
+message CommitRequest {
+        int64 epoch = 1;            // Current epoch
+        int64 zxid = 2;             // ZXID to commit
+}
+
+// Client Operations
+
+message GetLeaderReply {
+        int64 leader_id = 1;
+        string address = 2;
+}
+
+message SuspendRequest {
+        int64 period = 1;           // Suspension period in seconds
+}
+
+message SetRequest {
+        string key = 1;
+        string value = 2;
+}
+    
+message SetReply {
+        bool success = 1;
+        string leader_address = 2;
+}
+    
+message GetRequest {
+        string key = 1;
+}
+    
+message GetReply {
+        bool success = 1;
+        string value = 2;
+        string leader_address = 3;
+}
+
+// Helpers
+
+message EmptyMessage {}
