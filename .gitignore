@@ -1,5 +1,3 @@
-.target
-
 # Python-generated files
 __pycache__/
 *.py[oc]
@@ -18,3 +16,8 @@ wheels/
 .env
 .env.*
 !.env.example
+
+# gRPC generated
+raft_pb2.py
+raft_pb2_grpc.py
+

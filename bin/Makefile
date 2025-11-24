@@ -1,2 +1,0 @@
-add:
-	rustc add.rs
