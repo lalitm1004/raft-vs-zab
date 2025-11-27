@@ -1,6 +1,6 @@
 # Orchestration Parameters
-N = 10
-START_PORT = 6000
+N = 3
+START_PORT = 8000
 IMAGE = "zab-node"
 REQUEST_INTERVAL_TIME = 0.5
 WRITE_PROBABILITY = 0.5

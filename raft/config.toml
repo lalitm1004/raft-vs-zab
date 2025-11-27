@@ -1,5 +1,5 @@
 # Orchestration Parameters
-N = 10
+N = 3
 START_PORT = 5000
 IMAGE = "raft-node"
 REQUEST_INTERVAL_TIME = 0.5
