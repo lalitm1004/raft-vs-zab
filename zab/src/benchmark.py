@@ -4,6 +4,7 @@ import tomllib
 import grpc
 import statistics
 import sys
+import csv
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, List, Dict, Tuple, Any
@@ -193,6 +194,9 @@ def main() -> None:
 
     killed_node: Optional[Dict[str, Any]] = None
     events: List[str] = []
+    
+    # Track timestep data for CSV export
+    timestep_data: List[Dict[str, Any]] = []
 
     try:
         while time.time() - start_time < config.duration:
@@ -243,6 +247,22 @@ def main() -> None:
                 total_requests += request_count
                 total_successes += success_count
 
+                # Calculate average latency for this timestep
+                timestep_latencies = latencies[-(request_count):] if request_count > 0 else []
+                avg_latency_ms = statistics.mean(timestep_latencies) * 1000 if timestep_latencies else 0
+                
+                # Store timestep data for CSV export (remove rich formatting from events)
+                clean_events = [e.replace("[red]", "").replace("[/red]", "")
+                               .replace("[cyan]", "").replace("[/cyan]", "") for e in events]
+                timestep_data.append({
+                    "timestamp": current_time,
+                    "elapsed_seconds": int(current_time - start_time),
+                    "rps": current_rps,
+                    "success_rate_percent": success_rate,
+                    "avg_latency_ms": avg_latency_ms,
+                    "events": "; ".join(clean_events) if clean_events else ""
+                })
+
                 # Determine color for success rate
                 sr_color = "green"
                 if success_rate < 95:
@@ -266,20 +286,69 @@ def main() -> None:
     finally:
         console.print("-" * 90)
         console.print("[bold]Benchmark Finished[/bold]")
+        
+        # Calculate statistics
         if latencies:
             avg_lat = statistics.mean(latencies) * 1000
-            if len(latencies) >= 20:
-                p95 = statistics.quantiles(latencies, n=20)[18] * 1000
-            else:
-                p95 = max(latencies) * 1000 if latencies else 0
+            sorted_latencies = sorted(latencies)
+            n = len(sorted_latencies)
+            p50 = sorted_latencies[int(n * 0.50)] * 1000 if n > 0 else 0
+            p95 = sorted_latencies[int(n * 0.95)] * 1000 if n > 0 else 0
+            p99 = sorted_latencies[int(n * 0.99)] * 1000 if n > 0 else 0
             console.print(f"Avg Latency: {avg_lat:.2f}ms")
+            console.print(f"P50 Latency: {p50:.2f}ms")
             console.print(f"P95 Latency: {p95:.2f}ms")
+            console.print(f"P99 Latency: {p99:.2f}ms")
+        else:
+            avg_lat = p50 = p95 = p99 = 0
 
         avg_tps = total_requests / config.duration if config.duration > 0 else 0
         avg_sr = (total_successes / total_requests) * 100 if total_requests > 0 else 0
 
         console.print(f"Average TPS: {avg_tps:.2f}")
         console.print(f"Average Success Rate: {avg_sr:.2f}%")
+        
+        # Generate CSV filename based on config
+        write_prob_pct = int(config.write_probability * 100)
+        fault_status = "enabled" if config.fault_injection else "disabled"
+        kill_prob_pct = int(config.leader_kill_probability * 100)
+        
+        if config.fault_injection:
+            filename_base = f"zab_write_prob_{write_prob_pct}_fault_{fault_status}_kill_prob_{kill_prob_pct}_nodes_{config.n_nodes}"
+        else:
+            filename_base = f"zab_write_prob_{write_prob_pct}_fault_{fault_status}_nodes_{config.n_nodes}"
+        
+        # Create data directory if it doesn't exist
+        data_dir = Path("data")
+        data_dir.mkdir(exist_ok=True)
+        
+        # Export timestep data to CSV
+        timestep_csv_path = data_dir / f"{filename_base}_timesteps.csv"
+        with open(timestep_csv_path, "w", newline="") as f:
+            if timestep_data:
+                writer = csv.DictWriter(f, fieldnames=["timestamp", "elapsed_seconds", "rps", "success_rate_percent", "avg_latency_ms", "events"])
+                writer.writeheader()
+                writer.writerows(timestep_data)
+        console.print(f"\n[green]Timestep data saved to: {timestep_csv_path}[/green]")
+        
+        # Export summary statistics to CSV
+        summary_csv_path = data_dir / f"{filename_base}_summary.csv"
+        summary_data = [
+            {"metric": "avg_latency_ms", "value": f"{avg_lat:.2f}"},
+            {"metric": "p50_latency_ms", "value": f"{p50:.2f}"},
+            {"metric": "p95_latency_ms", "value": f"{p95:.2f}"},
+            {"metric": "p99_latency_ms", "value": f"{p99:.2f}"},
+            {"metric": "avg_tps", "value": f"{avg_tps:.2f}"},
+            {"metric": "avg_success_rate_percent", "value": f"{avg_sr:.2f}"},
+            {"metric": "total_requests", "value": str(total_requests)},
+            {"metric": "total_successes", "value": str(total_successes)},
+            {"metric": "duration_seconds", "value": str(config.duration)}
+        ]
+        with open(summary_csv_path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["metric", "value"])
+            writer.writeheader()
+            writer.writerows(summary_data)
+        console.print(f"[green]Summary data saved to: {summary_csv_path}[/green]")
 
         env.force_takedown()
 
