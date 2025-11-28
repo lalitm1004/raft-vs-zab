@@ -16,9 +16,3 @@ wheels/
 .env
 .env.*
 !.env.example
-
-# gRPC generated
-raft_pb2.py
-raft_pb2_grpc.py
-zab_pb2.py
-zab_pb2_grpc.py
