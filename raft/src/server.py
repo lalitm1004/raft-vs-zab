@@ -5,6 +5,8 @@ import threading
 import time
 import grpc
 import argparse
+import json
+import os
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple, Optional, Any, Union
 
@@ -60,6 +62,7 @@ class RaftNode:
         self.heartbeat_events: Dict[int, threading.Event] = {}
         self.is_terminating = False
         self.is_suspended = False
+        self.log_file_path = f"./data/logs/raft_state_{id}.json"
 
         # Initialize heartbeat events for other nodes
         for node_id in nodes:
@@ -71,6 +74,9 @@ class RaftNode:
         self.state.match_idx = [-1] * len(nodes)
 
         self.start_time = time.time()
+        
+        # Load persistent state if it exists
+        self.load_persistent_state()
 
     def log_prefix(self) -> str:
         """Generates a log prefix with current state info."""
@@ -111,6 +117,7 @@ class RaftNode:
             # vote for ourselves
             self.state.vote_count = 1
             self.state.voted_for_id = self.state.id
+            self.save_persistent_state()
 
         print(f"I am a candidate. Term: {self.state.term}")
         for id in self.state.nodes.keys():
@@ -385,6 +392,50 @@ class RaftNode:
             self.start_heartbeats()
         else:
             self.reset_election_campaign_timer()
+    
+    def save_persistent_state(self) -> None:
+        """Saves persistent state to disk."""
+        try:
+            os.makedirs(os.path.dirname(self.log_file_path), exist_ok=True)
+            
+            state_data = {
+                "term": self.state.term,
+                "voted_for_id": self.state.voted_for_id,
+                "logs": self.state.logs,
+            }
+            with open(self.log_file_path, "w") as f:
+                json.dump(state_data, f)
+        except Exception as e:
+            print(f"Error saving persistent state: {e}")
+    
+    def load_persistent_state(self) -> None:
+        """Loads persistent state from disk if it exists."""
+        if not os.path.exists(self.log_file_path):
+            print(f"No persistent state found, starting fresh")
+            return
+        
+        try:
+            with open(self.log_file_path, "r") as f:
+                state_data = json.load(f)
+            
+            self.state.term = state_data.get("term", 0)
+            self.state.voted_for_id = state_data.get("voted_for_id", -1)
+            self.state.logs = [tuple(entry) if isinstance(entry, list) else entry 
+                              for entry in state_data.get("logs", [])]
+            
+            converted_logs = []
+            for entry in self.state.logs:
+                if isinstance(entry, (list, tuple)) and len(entry) == 2:
+                    term, log_entry = entry
+                    if isinstance(log_entry, (list, tuple)):
+                        log_entry = tuple(log_entry)
+                    converted_logs.append((term, log_entry))
+            self.state.logs = converted_logs
+            
+            print(f"Loaded persistent state: term={self.state.term}, "
+                  f"voted_for={self.state.voted_for_id}, logs={len(self.state.logs)} entries")
+        except Exception as e:
+            print(f"Error loading persistent state: {e}, starting fresh")
 
 
 class RaftService(pb2_grpc.RaftNodeServicer):
@@ -397,7 +448,7 @@ class RaftService(pb2_grpc.RaftNodeServicer):
         if self.node.is_suspended:
             return pb2.ResultWithTerm(
                 term=self.node.state.term, result=False
-            )  # Or just return? Original returned None implicitly which is invalid for gRPC usually, but python gRPC might handle it or it was void. Original code: `if is_suspended: return`. This returns None.
+            )
 
         self.node.reset_election_campaign_timer()
         with self.node.lock:
@@ -422,6 +473,7 @@ class RaftService(pb2_grpc.RaftNodeServicer):
             ):
                 self.node.become_a_follower()
                 self.node.state.voted_for_id = request.candidate_id
+                self.node.save_persistent_state()
                 print(f"Voted for node {self.node.state.voted_for_id}")
                 return pb2.ResultWithTerm(term=self.node.state.term, result=True)
 
@@ -479,6 +531,8 @@ class RaftService(pb2_grpc.RaftNodeServicer):
                     self.node.state.logs = logs_start + entries
                 else:
                     self.node.state.logs = logs_start + entries + logs_end
+                
+                self.node.save_persistent_state()
 
                 if request.leader_commit > self.node.state.commit_idx:
                     self.node.state.commit_idx = min(
@@ -550,6 +604,7 @@ class RaftService(pb2_grpc.RaftNodeServicer):
             self.node.state.logs.append(
                 (self.node.state.term, ("set", request.key, request.value))
             )
+            self.node.save_persistent_state()
             return pb2.SetReply(success=True)
 
 
@@ -606,7 +661,7 @@ if __name__ == "__main__":
     parser.add_argument("--id", type=int, required=True, help="Node ID")
     parser.add_argument("--cluster-size", type=int, required=True, help="Cluster size")
     parser.add_argument("--ip", type=str, default="127.0.0.1", help="Base IP address")
-    parser.add_argument("--base-port", type=int, default=5000, help="Base port")
+    parser.add_argument("--base-port", type=int, default=8000, help="Base port")
     # Note: These args are currently not used to override constants to preserve exact functionality
     parser.add_argument(
         "--election-timeout-min-ms",

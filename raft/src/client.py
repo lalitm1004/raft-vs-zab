@@ -70,10 +70,8 @@ class RaftClient:
                 if not resp.success and resp.leader_address:
                     print(f"  [REDIRECT] Leader is at {resp.leader_address}")
                     self.connect_to(resp.leader_address)
-                    # Retry the request with the leader
                     continue
 
-                # Handle successful response
                 if resp.success:
                     print("  [SUCCESS] Set OK")
                     return
@@ -114,10 +112,8 @@ class RaftClient:
                 if not resp.success and resp.leader_address:
                     print(f"  [REDIRECT] Leader is at {resp.leader_address}")
                     self.connect_to(resp.leader_address)
-                    # Retry the request with the leader
                     continue
 
-                # Handle successful response
                 if resp.success:
                     print(f"  [SUCCESS] Value: {resp.value}")
                     return
@@ -156,7 +152,7 @@ class RaftClient:
             except Exception as e:
                 print(f"  [ERROR] Connection failed: {e}")
                 if attempt < max_attempts - 1:
-                    time.sleep(0.5 * (attempt + 1))  # Exponential backoff
+                    time.sleep(0.5 * (attempt + 1))
         return False
 
     def reset_connection(self):

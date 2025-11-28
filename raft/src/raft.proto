@@ -20,7 +20,7 @@ message VoteRequest {
         int64 last_log_term = 4;
 }
 
-// AppendEntries (Only Heartbeats for this lab)
+// AppendEntries
 
 message AppendRequest {
         int64 term = 1; // Current term number from the leader

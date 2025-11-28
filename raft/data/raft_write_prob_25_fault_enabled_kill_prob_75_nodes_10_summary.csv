@@ -1,0 +1,10 @@
+metric,value
+avg_latency_ms,0.12
+p50_latency_ms,0.09
+p95_latency_ms,0.26
+p99_latency_ms,0.50
+avg_tps,5589.10
+avg_success_rate_percent,99.68
+total_requests,335346
+total_successes,334270
+duration_seconds,60

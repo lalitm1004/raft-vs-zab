@@ -4,14 +4,11 @@ syntax = "proto3";
 package zab;
 
 service ZabNode {
-        // Fast Leader Election
         rpc FastLeaderElection(FLEMessage) returns (FLEMessage) {}
         
-        // Transaction Processing
         rpc ProposeTransaction(ProposeRequest) returns (AckMessage) {}
         rpc CommitTransaction(CommitRequest) returns (EmptyMessage) {}
         
-        // Client Operations
         rpc GetLeader(EmptyMessage) returns (GetLeaderReply) {}
         rpc Suspend(SuspendRequest) returns (EmptyMessage) {}
         rpc SetVal(SetRequest) returns (SetReply) {}
@@ -64,7 +61,7 @@ message GetLeaderReply {
 }
 
 message SuspendRequest {
-        int64 period = 1;           // Suspension period in seconds
+        int64 period = 1;
 }
 
 message SetRequest {

@@ -5,6 +5,8 @@ import threading
 import time
 import grpc
 import argparse
+import json
+import os
 from dataclasses import dataclass, field
 from typing import List, Dict, Tuple, Optional, Any, Union
 
@@ -76,6 +78,7 @@ class ZabNode:
         self.heartbeat_events: Dict[int, threading.Event] = {}
         self.is_terminating = False
         self.is_suspended = False
+        self.log_file_path = f"/data/logs/zab_state_{id}.json"
 
         # Initialize heartbeat events for other nodes
         for node_id in nodes:
@@ -83,6 +86,9 @@ class ZabNode:
                 self.heartbeat_events[node_id] = threading.Event()
 
         self.start_time = time.time()
+        
+        # Load persistent state if it exists
+        self.load_persistent_state()
 
     def log_prefix(self) -> str:
         """Generates a log prefix with current state info."""
@@ -135,6 +141,7 @@ class ZabNode:
             self.state.voted_for_id = self.state.id
             # Increment epoch when starting new election
             self.state.current_epoch += 1
+            self.save_persistent_state()
 
         print(f"{self.log_prefix()}Starting election")
         
@@ -332,6 +339,7 @@ class ZabNode:
             
             # Add to transaction log
             self.state.transactions.append((new_zxid, (key, value)))
+            self.save_persistent_state()
 
         # Broadcast proposal asynchronously (fire and forget for better throughput)
         def broadcast_proposal():
@@ -360,7 +368,7 @@ class ZabNode:
                     )
 
                 except grpc.RpcError:
-                    pass  # Follower will catch up via heartbeat/log replication
+                    pass
 
         # Start async broadcast
         threading.Thread(target=broadcast_proposal, daemon=True).start()
@@ -406,6 +414,49 @@ class ZabNode:
             self.start_heartbeats()
         else:
             self.reset_election_timer()
+    
+    def save_persistent_state(self) -> None:
+        """Saves persistent state to disk."""
+        try:
+            state_data = {
+                "accepted_epoch": self.state.accepted_epoch,
+                "current_epoch": self.state.current_epoch,
+                "last_zxid": self.state.last_zxid,
+                "transactions": self.state.transactions,
+            }
+            with open(self.log_file_path, "w") as f:
+                json.dump(state_data, f)
+        except Exception as e:
+            print(f"Error saving persistent state: {e}")
+    
+    def load_persistent_state(self) -> None:
+        """Loads persistent state from disk if it exists."""
+        if not os.path.exists(self.log_file_path):
+            print(f"No persistent state found, starting fresh")
+            return
+        
+        try:
+            with open(self.log_file_path, "r") as f:
+                state_data = json.load(f)
+            
+            self.state.accepted_epoch = state_data.get("accepted_epoch", 0)
+            self.state.current_epoch = state_data.get("current_epoch", 0)
+            self.state.last_zxid = state_data.get("last_zxid", 0)
+            
+            # Load transactions
+            transactions = state_data.get("transactions", [])
+            self.state.transactions = []
+            for txn in transactions:
+                if isinstance(txn, (list, tuple)) and len(txn) == 2:
+                    zxid, kv_pair = txn
+                    if isinstance(kv_pair, (list, tuple)) and len(kv_pair) == 2:
+                        self.state.transactions.append((zxid, tuple(kv_pair)))
+            
+            print(f"Loaded persistent state: accepted_epoch={self.state.accepted_epoch}, "
+                  f"current_epoch={self.state.current_epoch}, last_zxid={self.state.last_zxid:016x}, "
+                  f"transactions={len(self.state.transactions)} entries")
+        except Exception as e:
+            print(f"Error loading persistent state: {e}, starting fresh")
 
 
 class ZabService(pb2_grpc.ZabNodeServicer):
@@ -429,13 +480,12 @@ class ZabService(pb2_grpc.ZabNodeServicer):
             # Update our epoch if we see a higher one
             if request.epoch > self.node.state.current_epoch:
                 self.node.state.current_epoch = request.epoch
+                self.node.save_persistent_state()
                 if self.node.state.state != STATE_LOOKING:
-                    # Higher epoch seen, start new election
                     self.node.state.state = STATE_LOOKING
                     self.node.state.vote_count = 1
                     self.node.state.voted_for_id = self.node.state.id
 
-            # If we're not looking, we have a leader
             if self.node.state.state != STATE_LOOKING:
                 return pb2.FLEMessage(
                     node_id=self.node.state.id,
@@ -445,7 +495,6 @@ class ZabService(pb2_grpc.ZabNodeServicer):
                     leader_id=self.node.state.leader_id,
                 )
 
-            # Compare and potentially update our vote
             if (request.epoch > self.node.state.current_epoch or
                 (request.epoch == self.node.state.current_epoch and request.zxid > self.node.state.last_zxid) or
                 (request.epoch == self.node.state.current_epoch and request.zxid == self.node.state.last_zxid and request.leader_id > self.node.state.voted_for_id)):
@@ -492,6 +541,7 @@ class ZabService(pb2_grpc.ZabNodeServicer):
                 (request.transaction.key, request.transaction.value)
             ))
             self.node.state.leader_id = request.leader_id
+            self.node.save_persistent_state()
 
             return pb2.AckMessage(
                 epoch=self.node.state.current_epoch,
